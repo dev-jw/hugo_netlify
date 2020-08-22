@@ -1,0 +1,105 @@
+$text-color-glow: #6d9ee7;
+$text-color: #6d9ee7;
+
+@import "effects/dev/effect";
+@import "./home-dev-content";
+
+.dev-list {
+  width: $listWidth;
+  margin: 0 auto;
+}
+
+.dev-intro {
+  text-align: center;
+  margin-bottom: 1em;
+  .avatar {
+    width: 180px;
+  }
+
+  .logot {
+    font-weight: bold;
+    font-size: 24px;
+    margin: auto;
+    padding-top: 1em;
+    font-family: "Menlo", "Meslo LG", monospace;
+    .logo_1 {
+      color: #888888;
+    }
+    .logo_2 {
+      color: $text-color-glow;
+    }
+    .logo_3 {
+      color: #be8355;
+    }
+  }
+}
+
+.dev-post {
+  margin: 0 1em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  .post-title {
+    font-weight: bold;
+    margin: 1em 0;
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--color-contrast-high);
+  }
+  a {
+    text-decoration: none;
+    transition: all 0.5s;
+  }
+}
+
+.dev-tags {
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.card {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  width: 200px;
+  height: auto;
+  padding: 3ch;
+  margin-top: 2em;
+  background-color: var(--color-contrast-lower);
+  border-radius: 2ch;
+  border: double 5px transparent;
+  /*Set both inset and outset box shadow using CSS, separated by , */
+  box-shadow: 10px 20px 50px 10px var(--color-bg);
+  overflow: hidden;
+  transition: transform 0.1s ease-in-out, box-shadow 0.1s;
+}
+
+.card:hover {
+  transform: translateY(-0.5rem) scale(1.0125);
+}
+
+.dev-icon {
+  color: #ffffff;
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: $maxWidth) {
+  .dev-list {
+    width: auto;
+  }
+  .dev-post {
+    .post-title {
+      font-size: 1em;
+    }
+    justify-content: center;
+    margin: auto;
+  }
+  .card {
+    width: 80px;
+  }
+}

@@ -1,0 +1,16 @@
+[build]
+  publish = "public"
+  command = "npm run build"
+
+[build.environment]
+  HUGO_VERSION = "0.74.1"
+  HUGO_ENV = "production"
+  HUGO_ENABLEGITINFO = "true"
+
+[context.production]
+  command = "npm run build && npm run ipfs-deploy"
+
+[[redirects]]
+  from = "https://hugo-dev-hjw.netlify.app/*"
+  to = "https://dev.hjw.best/:splat"
+  force = true

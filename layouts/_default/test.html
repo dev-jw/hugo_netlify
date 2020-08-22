@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode }}">
+  {{ partial "head.html" . }}
+  <link rel="stylesheet" href="/404/404.css" />
+  <body>
+    <div class="container">
+      <main class="main">
+        {{ partial "404/404.html" }}
+        <div class="main-footer">
+          <button class="button button--radial">
+            <a href="{{ print `/` | relLangURL }}">{{ i18n "fofLinkText" }}</a>
+          </button>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

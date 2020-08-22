@@ -1,0 +1,12 @@
+[data-theme="dark"] {
+  img {
+      filter: brightness(75%);
+      -webkit-filter: brightness(75%);
+  }
+  #theme-switcher, #lang-switcher {
+      opacity: 0.5;
+  }
+  strong {
+    color: var(--color-contrast-higher);
+  }
+}

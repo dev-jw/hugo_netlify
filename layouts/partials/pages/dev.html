@@ -1,0 +1,166 @@
+
+{{- $Deliver := . -}}
+<main class="main dev-list" id="main">
+<div class="main-inner">
+    <!-- intro -->
+    <article class="dev-intro">
+        <a href="{{ .Site.Params.homeDevLink }}">
+            <figure class="avatar-card">
+                <img src="{{ .Site.Params.homeDevAvatar }}" class="avatar button" />
+                <figcaption>
+                    <h5>Zsy</h5>
+                    <p>iOS Dev</p>
+                </figcaption>
+            </figure>
+        </a>
+        <p class="logot">
+            <span class="logo_1">&lt;</span><span class="logo_2">/</span><span class="logo_3">#</span>
+            {{ .Site.Params.homeDevInfo }}
+            <span class="logo_3">#</span><span class="logo_2">/</span><span class="logo_1">&gt;</span>
+        </p>
+    </article>
+    
+    <div style="height: 1em;"></div>
+
+    <!-- <div class="dev-tags">
+        {{ range .Site.Sections }}
+        {{ if ne  .Type  "post" }}
+        {{ with .Sections }}         
+        <div class="tabs">
+          {{ range . }}
+            <input type="radio" id="radio-{{ .Title }}" name="tabs" checked />
+            <label for="tab">{{ .Title }}</label>
+          {{ end }}
+          <span class="glider"></span>
+        </div>
+        {{ range . }}  
+            <div class="content">
+                {{ range first 5 .Pages }}
+                <article class="content post home dev-post">
+                    <span class="post-title">
+                        <a href="{{ .RelPermalink }}" class="summary-title-link">{{ .LinkTitle }}</a>
+                    </span>
+                </article>
+                {{ end }}
+            </div>
+        {{ end }}
+        {{ end }}
+        {{ end }}
+        {{ end }}
+    </div> -->
+
+
+    <!-- {{ range .Site.Sections }}
+    {{ if ne  .Type  "post" }}
+        <li class="menu-item menu-item-type-post_type menu-item-object-page">            
+            {{ with .Sections }}         
+            <ul>
+                {{ range . }}  
+                <li >
+                    <a href="{{ .Permalink }}">{{replaceRE ".*/(.+?)/$" "$1" .File.Dir |title}}</a>
+                    <a href="{{ .Permalink }}">
+                        {{- partial "utils/icon.html" (dict "$" $ "name" .Title "class" "dev-icon") -}}
+                    </a>
+                    <ul>
+                        {{ range .Pages }}
+                        <li>
+                            <a href="{{ .Permalink }}">{{ .Title }} </a>
+                        </li>
+                        {{ end }}
+                    </ul>
+                </li>                
+                {{ end }}
+            </ul>
+            {{end}}
+        </li>
+    {{ end }}        
+    {{ end }} -->
+
+
+
+    <div class="dev-tags">
+        {{ range .Site.Params.mainSections }}
+        {{- $raw := . -}}
+        <article class="content post home dev-post">
+            {{ if eq $raw "flutter" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card top_card">
+                    <h4 class="post-title">Flutter</h4>
+                </div>
+            </a>
+
+            {{ else if eq $raw "ios" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card middle_card">
+                    <h4 class="post-title">iOS</h4>
+                </div>
+            </a>
+
+            {{ else if eq $raw "opengl" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card bottom_card">
+                    <h4 class="post-title">OpenGL</h4>
+                </div>
+            </a>
+
+            {{ else if eq $raw "opengles" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card top_card">
+                    <h4 class="post-title">OpenGLES</h4>
+                </div>
+            </a>
+
+            {{ else if eq $raw "leetcode" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card middle_card">
+                    <h4 class="post-title">LeetCode</h4>
+                </div>
+            </a>
+
+            {{ else if eq $raw "algorithm" }}
+            <a href="/posts/{{$raw}}" class="summary-title-link">
+                <div class="card bottom_card">
+                    <h4 class="post-title">数据结构与算法</h4>
+                </div>
+            </a>
+
+            {{ else }}
+            <div class="card">
+                <h4 class="post-title">
+                    <a href="/posts/{{$raw}}" class="summary-title-link">{{ $raw | safeHTML }}</a>
+                </h4>
+            </div>
+            {{ end }}
+
+        </article>
+        {{ end }}
+    </div> 
+
+    <!-- 文章 - list -->
+    <!-- {{ $paginator := .Paginate (where .Site.RegularPages "Section" "in" .Site.Params.mainSections) }}
+    {{ range $paginator.Pages }}
+        <article class="content post home dev-post">
+            <span class="post-title">
+                <a href="{{ .RelPermalink }}" class="summary-title-link">{{ .LinkTitle }}</a>
+            </span>
+            {{ if $.Site.Params.enablePostMetaInHome }}
+                {{ partial "components/post-meta.html" (dict "Deliver" . "isHome" true) }}
+            {{ end }}
+        </article>
+    {{ end }}
+    {{ if or $paginator.HasPrev $paginator.HasNext }}
+        <ul class="pagination">
+            {{ if $paginator.HasPrev }}
+                <li class="pagination-prev">
+                    <a href="{{ $paginator.Prev.URL }}" rel="prev">{{ printf `< %s` (i18n "prevPage") | safeHTML }}</a>
+                </li>
+            {{ end }}
+            {{ if $paginator.HasNext }}
+                <li class="pagination-next">
+                    <a href="{{ $paginator.Next.URL }}" rel="next">{{ printf `%s >` (i18n "nextPage") | safeHTML }}</a>
+                </li>
+            {{ end }}
+        </ul>
+    {{ end }} -->
+</div>
+</main>

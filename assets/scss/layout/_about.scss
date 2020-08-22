@@ -1,0 +1,14 @@
+@import "effects/about/typedCursor";
+@import "effects/about/bongoCat";
+@import "effects/about/crowd";
+
+.about {
+  width: $listWidth;
+  margin: 0 auto;
+}
+
+@media (max-width: $maxWidth) {
+  .about {
+    width: auto;
+  }
+}

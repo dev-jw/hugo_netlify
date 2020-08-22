@@ -1,0 +1,14 @@
+{{ define "main" }}
+    <!-- 自定义界面 -->
+    <main class="main about" id="main">
+        <!-- 打字喵 -->
+        {{ partial "bongoCat/bongoCat.html" . }}
+        <!-- 打字机 -->
+        <div class="main-inner">
+            <span class="element"></span>
+        </div>
+    </main>
+    <!-- 人海 -->
+    <!-- <canvas class="crowd" id="canvas"></canvas> -->
+    {{ partial "custom/plugins.html" . }}
+{{ end }}
