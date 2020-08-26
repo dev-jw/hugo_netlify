@@ -27,6 +27,10 @@ Metal 经过版本迭代，已经不再是 iOS 平台独有，现在同样支持
 
 #### Metal渲染
 
+**Metal 渲染图形管线**
+
+![img](https://w-md.imzsy.design/gfx-pipeline_2x.png)
+
 Metal 渲染流程和 OpenGL ES 是基本一致的。
 
 - CPU 将顶点数据传递到顶点着色器
