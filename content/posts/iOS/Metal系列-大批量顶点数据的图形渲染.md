@@ -169,3 +169,5 @@ memcmp(_vertexBuffer.contents, vertexData.bytes, vertexData.length);
 - 当顶点数据`小于 4KB`时，可以选择存储到 CPU，通过`setVertexBytes:length:atIndex:`将数据传递到着色器
 
 - 当顶点数据`大于 4KB`时，需要将数据存储到 MTLBuffer 对象中，让 GPU 能够直接获取，并通过`setVertexBuffer: offset: atIndex:`将顶点数据传递到着色器
+
+[完整代码获取](https://github.com/dev-jw/learning-metal)

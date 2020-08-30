@@ -1,7 +1,7 @@
 ---
 title: "Metal系列-加载纹理"
 date: 2020-08-25T14:51:40+08:00
-draft: true
+draft: false
 tags: ["Metal", "iOS"]
 url:  "Metal-5"
 ---
@@ -32,17 +32,19 @@ textureDescriptor.height = image.size.height;
 _texture = [_device newTextureWithDescriptor:textureDescriptor];
 ```
 
+#### 加载纹理
+
 **加载图像数据**
 
-- 加载 `TGA` 图片
+- 加载 `TGA` 图片(参考[官方文档](https://developer.apple.com/documentation/metal/creating_and_sampling_textures))
 
 ```objective-c
 	- (void)setupTexture{
     
 //    1、获取TGA文件路径 --- TGA文件解压
     NSURL *imageFileLocation = [[NSBundle mainBundle] URLForResource:@"circle" withExtension:@"tga"];
-    //将tag文件->CJLImage对象
-    CJLImage *image = [[CJLImage alloc] initWithTGAFileAtLocation:imageFileLocation];
+    //将tag文件->TGAImage
+    TGAImage *image = [[TGAImage alloc] initWithTGAFileAtLocation:imageFileLocation];
     //判断图片是否转换成功
     if (!image) {
         NSLog(@"Failed to create the image from:%@",imageFileLocation.absoluteString);
@@ -89,6 +91,7 @@ _texture = [_device newTextureWithDescriptor:textureDescriptor];
    [_texture replaceRegion:region mipmapLevel:0 withBytes:image.data.bytes bytesPerRow:bytesPerRow];
 }
 
+// TGAImage.m
 - (nullable instancetype) initWithTGAFileAtLocation:(nonnull NSURL *)location
 {
     self = [super init];
@@ -196,6 +199,8 @@ _texture = [_device newTextureWithDescriptor:textureDescriptor];
 
 - 加载 `PNG/JPG` 图片
 
+  与 TGA 图片加载不同，解压 PNG/JPG 图片可以采用 `CoreImage` 框架，重绘成位图即可
+
 ```objective-c
 - (void)setupTexture {
     UIImage *image = [UIImage imageNamed:@"wlop.png"];
@@ -248,8 +253,78 @@ _texture = [_device newTextureWithDescriptor:textureDescriptor];
 }
 ```
 
+**将纹理复制到 MTLTexture 对象**
+
+`replaceRegion: mipmapLevel: withBytes: bytesPerRow:`
+
+```objective-c
+// MTLRegion 结构体用于标识纹理的特定区域
+MTLRegion region = {
+    {0, 0, 0},
+    {image.size.width, image.size.height, 1},
+};
+/*
+  将图片复制到纹理0中（即用纹理替换region表示的区域）
+  - (void)replaceRegion:(MTLRegion)region mipmapLevel:(NSUInteger)level withBytes:(const void *)pixelBytes bytesPerRow:(NSUInteger)bytesPerRow;
+  参数1-region：像素区域在纹理中的位置
+  参数2-level：从零开始的值，指定哪个mipmap级别是目标。如果纹理没有mipmap，请使用0。
+  参数3-pixelBytes：指向要复制图片的字节数
+  参数4-bytesPerRow：对于普通或压缩像素格式，源数据行之间的跨度（以字节为单位）。对于压缩像素格式，跨度是从一排块的开头到下一行的开始的字节数。
+ */
+[_texture replaceRegion:region
+            mipmapLevel:0
+              withBytes:imageBytes
+            bytesPerRow:4 * image.size.width];
+```
+
 **传递图像数据**
 
 通过命令编码器，将当前纹理对象传递到 Metal 程序的片段函数中
 
 `[commandEncoder setFragmentTexture:_texture atIndex:TextureIndexBaseColor]`
+
+#### Shader 处理
+
+顶点函数与之前 OpenGL ES 加载纹理一样，之比之前传入的参数是变量，而 Metal 接收的是结构体，返回的也可以是结构体
+
+```c++
+typedef struct
+{
+    float4 clipSpacePosition [[position]]; // position的修饰符表示这个是顶点
+    
+    float2 textureCoordinate; // 纹理坐标，会做插值处理
+    
+} RasterizerData;
+
+vertex RasterizerData // 返回给片元着色器的结构体
+vertexShader(uint vertexID [[ vertex_id ]], // vertex_id是顶点shader每次处理的index，用于定位当前的顶点
+             constant Vertex *vertexArray [[ buffer(0) ]]) { // buffer表明是缓存数据，0是索引
+    RasterizerData out;
+    out.clipSpacePosition = vertexArray[vertexID].position;
+    out.textureCoordinate = vertexArray[vertexID].textureCoordinate;
+    return out;
+}
+
+fragment float4
+samplingShader(RasterizerData input [[stage_in]], // stage_in表示这个数据来自光栅化。（光栅化是顶点处理之后的步骤，业务层无法修改）
+               texture2d<half> colorTexture [[ texture(0) ]]) // texture表明是纹理数据，0是索引
+{
+    constexpr sampler textureSampler (mag_filter::linear,
+                                      min_filter::linear); // sampler是采样器
+    
+    half4 colorSample = colorTexture.sample(textureSampler, input.textureCoordinate); // 得到纹理对应位置的颜色
+    
+    return float4(colorSample);
+}
+```
+
+#### 总结
+
+Metal 的图片加载和 OpenGL ES非常的相似，核心关键是：
+
+- 纹理图像解压成位图
+- 将位图信息存储到`MTLTexture`对象
+- 在绘制时，将 `MTLTexure` 对象传递到 Metal 着色器程序的片段函数
+- 片段函数设置采样器，获取纹理对应位置的颜色值
+
+[完整代码获取](https://github.com/dev-jw/learning-metal)
