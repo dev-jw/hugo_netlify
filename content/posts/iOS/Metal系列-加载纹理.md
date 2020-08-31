@@ -39,7 +39,7 @@ _texture = [_device newTextureWithDescriptor:textureDescriptor];
 - 加载 `TGA` 图片(参考[官方文档](https://developer.apple.com/documentation/metal/creating_and_sampling_textures))
 
 ```objective-c
-	- (void)setupTexture{
+- (void)setupTexture {
     
 //    1、获取TGA文件路径 --- TGA文件解压
     NSURL *imageFileLocation = [[NSBundle mainBundle] URLForResource:@"circle" withExtension:@"tga"];
