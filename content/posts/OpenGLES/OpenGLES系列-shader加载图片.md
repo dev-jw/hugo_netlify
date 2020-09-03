@@ -6,7 +6,7 @@ tags: ["iOS", "OpenGLES"]
 url:  "shader-image"
 ---
 
-> Shader 着色器是通过 GLSL 编写，关于 GLSL 的基本概念可以参考『[GLSL小节](https://dev.hjw.best/glsl/)』
+> Shader 着色器是通过 GLSL 编写，关于 GLSL 的基本概念可以参考『[GLSL小节](/glsl/)』
 
 
 

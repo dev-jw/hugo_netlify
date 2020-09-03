@@ -29,7 +29,7 @@ tags: ["LeetCode"]
 
 ##### Tag
 
-| [数组](https://dev.hjw.best/posts/leetcode/array/) | [链表](https://dev.hjw.best/posts/leetcode/linkedList/) | [数学](https://dev.hjw.best/posts/leetcode/math/) | [字符串](https://dev.hjw.best/posts/leetcode/string/) | [树](https://dev.hjw.best/posts/leetcode/tree/) |
+| [数组](/posts/leetcode/array/) | [链表](/posts/leetcode/linkedlist/) | [数学](/posts/leetcode/math/) | [字符串](/posts/leetcode/string/) | [树](/posts/leetcode/tree/) |
 | --------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------ |
 
 

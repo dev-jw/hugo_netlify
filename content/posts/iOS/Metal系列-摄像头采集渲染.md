@@ -15,7 +15,7 @@ url:  "Metal-6"
 #### Metal 相关设置
 
 1. 创建和初始化 MTKView
-2. 设置 MTKView 的 drawable，默认的帧缓存是**只读**，设为 NO 即**可读写**，但会牺牲性能
+2. 设置 MTKView 的 `drawable`，默认的帧缓存是**只读**，设为 NO 即**可读写**，但会牺牲性能
 3. 创建`CVMetalTextureCacheRef`纹理缓存，这是`Core Video`的 Metal 纹理缓存
 
 ```objective-c
@@ -225,14 +225,12 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 }
 ```
 
-
-
 #### 总结
 
 摄像头采集渲染的两个核心点：
 
 - 从 `CVPixelBufferRef` 创建 Metal 纹理
-- 使用`MetalPerformanceShaders`以及理解
+- 使用以及理解`MetalPerformanceShaders`
 
 > 在实际的开发应用中，`AVFoundation`提供了一个`AVCaptureVideoPreviewLayer`预览 layer，直接预览视频采集后的即时渲染，[官方文档](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer?language=objc)
 

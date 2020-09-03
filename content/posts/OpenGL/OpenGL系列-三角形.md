@@ -6,7 +6,7 @@ tags: ["OpenGL", "iOS"]
 url: "Hello_Triangle"
 ---
 
-在[《OpenGL系列-基本概念》](https://dev.hjw.best/openglnoun/)中，我们已经对 OpenGL 的概念有了一个初步的认识，现在让我们开始第一个案例吧。
+在[《OpenGL系列-基本概念》](/openglnoun/)中，我们已经对 OpenGL 的概念有了一个初步的认识，现在让我们开始第一个案例吧。
 
 ### 你好，三角形
 
