@@ -1,7 +1,7 @@
 ---
 title: "Metal系列-视频渲染"
 date: 2020-08-30T23:13:50+08:00
-draft: true
+draft: false
 tags: ["Metal", "iOS"]
 url:  "Metal-7"
 ---
