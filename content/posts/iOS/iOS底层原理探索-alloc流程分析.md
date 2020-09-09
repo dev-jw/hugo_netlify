@@ -265,7 +265,7 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
 
 - 进入`instanceSize`方法，根据缓存进行快速计算内存
 - 进入`fastInstanceSize`方法
-  - `_flags` ：存储类的属性所占用的内存大小，会根据属性的个数，进行改变
+  - `_flags` ：存储类的属性所占用的内存大小，根据类的属性进行改变
   -  `FAST_CACHE_ALLOC_MASK`：存储实例的字节对齐大小+`ALLOC_DELTA16`的位与实例大小占用的位相同，因此，使用遮罩操作提前大小
 - 接着进入`align16`方法，进行 **16字节内存对齐**
 
