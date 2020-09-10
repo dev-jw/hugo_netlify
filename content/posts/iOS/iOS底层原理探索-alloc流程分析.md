@@ -1,6 +1,6 @@
 ---
 title: "iOS底层原理探索-alloc流程分析"
-date: 2020-09-04T11:29:07+08:00
+date: 2020-09-05T11:29:07+08:00
 draft: false
 tags: ["iOS"]
 url:  "alloc"
@@ -9,15 +9,15 @@ url:  "alloc"
 首先，我们抛出几个问题，带着这些问题去探索 alloc 流程，可以加深我们对 alloc 流程的理解
 
 - alloc 究竟做了什么
-- alloc 过程中如何确定对象开辟内存的大小
-- alloc、init、new 的区别是什么
 - `NSObject`类和继承 `NSObject` 类的alloc流程有什么区别
+- alloc 的过程中是如何计算对象开辟内存的大小？影响因素是什么
+- alloc、init、new 的区别是什么
 
 **准备工作**
 
-在开始之前，我们需要先对**objc源码**进行配置，并且编译。具体过程，可以参考这篇文章：『[objc源码编译调试](https://juejin.im/post/6844903959161733133)』
+在开始之前，我们需要先对**objc源码**进行配置，并编译。参考这篇文章：『[objc源码编译调试](https://juejin.im/post/6844903959161733133)』
 
-#### alloc 流程分析
+### alloc 流程分析
 
 **alloc流程图**
 
@@ -28,8 +28,8 @@ url:  "alloc"
 > 这里有个疑问：
 >
 > 明明调用的是 alloc 方法，为什么会进到 objc_alloc 方法中呢？
->
-> 这是因为在 `llvm` 中，对一些特殊的入口进行了修饰，比如：调用 alloc 方法，实际会调用 objc_alloc 方法。
+
+这是因为在 `llvm` 中，对一些特殊的入口进行了修饰，比如：调用 alloc 方法，实际会调用 objc_alloc 方法。
 
 **llvm 对于特殊入口alloc的修饰处理**
 
@@ -104,11 +104,11 @@ llvm::Value *CodeGenFunction::EmitObjCAlloc(llvm::Value *value,
       frame #6: 0x00007fff6824fcc9 libdyld.dylib`start + 1
   ```
 
-上面的堆栈信息，可以验证我们为什么调用 alloc 方法，会先进到 objc_alloc。
+上面的堆栈信息，也可以验证调用 alloc 方法，先会进到 objc_alloc。
 
 但是，这里有一个新的问题：**为什么继承 NSObject 的会调用两次 alloc 方法？**
 
-##### 核心函数理解
+### 核心函数理解
 
 - `callAlloc`
 
@@ -170,18 +170,25 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 - 当 cls 为 NSObject 时，会进入到调用`_objc_rootAllocWithZone`方法的语句
 - 当 cls 为 继承 NSObject 的类时
   - 第一次进入 `callAlloc` 方法
-    - 并不会进入到调用`_objc_rootAllocWithZone`方法，
-    - 会来到`return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc))`语句，对应堆栈信息中的 `objc_alloc [inlined] callAlloc(cls=Person, checkNil=true, allocWithZone=false) at NSObject.mm:1714:12`
+
+    并不会进入到调用`_objc_rootAllocWithZone`方法，
+
+    来到`return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc))`语句，
+
+    对应堆栈信息中的 `objc_alloc [inlined] callAlloc(cls=Person, checkNil=true, allocWithZone=false) at NSObject.mm:1714:12`
+
   - 第二次进入 `callAlloc` 方法，会进入到调用`_objc_rootAllocWithZone`方法的语句
 
-> 总结一下：当继承 NSObject 的类 alloc 时，
+> 当继承 NSObject 的类 alloc 时，
 >
 > 1. 先进入 `objc_alloc -> callAlloc`，这是第一次进入`callAlloc`方法，会向系统发生 alloc 消息
-> 2. `alloc->callAlloc->_objc_rootAllocWithZone`，这是第二次进入`callAlloc`方法，也就是上面流提及的 alloc 流程
+> 2. `alloc->callAlloc->_objc_rootAllocWithZone`，这是第二次进入`callAlloc`方法，也就是上面提及的 alloc 流程
 >
 > 
 
-- `_class_createInstanceFromZone`
+##### `_class_createInstanceFromZone`
+
+![image-20200909102959562](https://w-md.imzsy.design/image-20200909102959562.png)
 
 ```C++
 /***********************************************************************
@@ -251,21 +258,19 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
 }
 ```
 
-![image-20200909102959562](https://w-md.imzsy.design/image-20200909102959562.png)
-
 这个方法是整个 alloc 流程中的关键点，实现的主要功能如下：
 
-1. `instanceSize`: 计算类所需要开辟的内存空间
+1. `instanceSize`: 计算对象所需要开辟的内存空间
 2. `calloc`: 向系统申请开辟内存
 3. `initInstanceIsa: 初始化 `isa` 指针，并将 `isa` 与当前 `cls` 类进行关联
 
-#### 内存字节对齐
+### 内存字节对齐
 
-计算一个类所需要开辟的内存大小的流程如下
+计算一个对象所需要开辟的内存大小的流程如下
 
 - 进入`instanceSize`方法，根据缓存进行快速计算内存
 - 进入`fastInstanceSize`方法
-  - `_flags` ：存储类的属性所占用的内存大小，根据类的属性进行改变
+  - `_flags` ：存储对象的属性所占用的内存大小，根据对象的属性进行改变
   -  `FAST_CACHE_ALLOC_MASK`：存储实例的字节对齐大小+`ALLOC_DELTA16`的位与实例大小占用的位相同，因此，使用遮罩操作提前大小
 - 接着进入`align16`方法，进行 **16字节内存对齐**
 
@@ -323,6 +328,8 @@ uint32_t alignedInstanceSize() const {
 
 ```
 
+> 从 779.1 版本开始，苹果对 cache 进行了优化，更快速去获取类的内存大小
+
 **字节对齐算法解析**
 
 ```
@@ -352,7 +359,7 @@ uint32_t alignedInstanceSize() const {
 
 这是**空间换时间**的做法。
 
-#### init & new
+### init & new
 
 通过源码可以发现，`init`实际什么也没做，只是返回了`强转的 self`
 
@@ -398,6 +405,5 @@ _objc_rootInit(id obj)
     return [callAlloc(self, false/*checkNil*/) init];
 }
 ```
-
 
 
