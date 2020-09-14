@@ -1,7 +1,7 @@
 ---
 title: "iOS底层原理探索-isa结构&指向分析"
 date: 2020-09-10T10:25:02+08:00
-draft: true
+draft: false
 tags: ["iOS"]
 url:  "isa"
 ---
@@ -13,6 +13,7 @@ url:  "isa"
 - 位域是什么？联合体是什么？联合体和结构体有什么区别
 - NSObject的本质是什么？
 - isa 是怎么存储类信息？
+- isa的走位和 superClass 的走向是怎么样的？
 - 类在内存中存在多少份？
 
 ### 准备知识
@@ -340,11 +341,11 @@ objc_object::ISA()
 
 ### isa走位
 
-我们已经知道，类和实例对象中都包含了一个 objc_class类型的 isa
+我们已经知道，类和实例对象中都包含了一个 objc_class类型的 isa，并且首地址一定是 isa。
 
-当对象的**实例方法**被调用的时候，会通过 isa 找到相应的类，然后去查找方法。
+当对象的**实例方法**被调用的时候，会通过 isa 找到相应的类，再去查找方法。
 
-那我们调用**类方法**的时候，类的 isa 又是怎么操作的呢？
+那调用**类方法**的时候，类的 isa 又是怎么操作的呢？
 
 其实，苹果在这里为了和对象查找方法的机制一致，于是引入了`元类(meta-class)`的概念
 
@@ -355,13 +356,29 @@ objc_object::ISA()
 - 对象的实例方法调用时，通过对象的 isa 在类中获取方法的实现
 - 类对象的类方法调用时，通过类的 isa 在元类中获取方法的实现
 
+**打印类/对象查看isa走向**
+
+![image-20200914134107532](https://w-md.imzsy.design/image-20200914134107532.png)
+
+1. 打印 Person 类，取得 isa
+2. Person 类的 isa 进行偏移得到 Person 元类，打印 Person 元类取得 isa
+3. Person 元类的 isa 进行偏移得到 NSObject 根元类，打印 NSObject 根元类取得 isa
+4. NSObject 根元类的 isa 进行偏移得到 NSObject 根元类本身
+5. 打印 NSObject 根类，取得 isa
+6. NSObject 根类的 isa 进行偏移得到 NSObject 根元类
+
+**isa走向结论：**
+
+- `实例对象 -> 类对象 -> 元类 -> 根元类 -> 根元类(本身)`
+- `NSObject(根类) -> 根元类 -> 根元类(本身)`
+
 对象、类、元类之间的关系，如下图：
 
 ![isa流程图](https://w-md.imzsy.design/isa流程图.png)
 
 图中实线是 super_class指针，虚线是isa指针
 
-- Root class 其实就是 NSObject，NSObject是没有超类的，所以Root class(class)的superclass指向nil
+- Root class(class)其实就是 NSObject，NSObject是没有超类的，所以Root class(class)的superclass指向nil
 - 每个Class都有一个isa指针指向唯一的Meta class
 - Root class(meta)的superclass指向Root class(class)，也就是NSObject，形成一个回路
 - 每个Meta class的isa指针都指向Root class (meta)
@@ -392,23 +409,75 @@ int main(int argc, const char * argv[]) {
 
 输出证明`类在内存中只会存在一个，而实例对象可以存在多个`
 
+### 测试
 
+下面代码输出是什么？
 
+**代码一**
 
+```objc
+@interface Cat : Animal
+@end
 
+@implementation Cat
+- (id)init
+{
+    self = [super init];
+    if (self)
+    {
+        NSLog(@"%@", NSStringFromClass([self class]));
+        NSLog(@"%@", NSStringFromClass([super class]));
+    }
+return self;
+}
+@end
+```
 
+**代码二**
 
+```objc
+@interface Person : NSObject
+@end
 
+@implementation Person
+@end
 
+int main(int argc, const char * argv[]) {
+  @autoreleasepool {
+      BOOL res1 = [(id)[NSObject class] isKindOfClass:[NSObject class]];
+      BOOL res2 = [(id)[NSObject class] isMemberOfClass:[NSObject class]];
+      BOOL res3 = [(id)[Person class] isKindOfClass:[Person class]];
+      BOOL res4 = [(id)[Person class] isMemberOfClass:[Person class]];
 
+      NSLog(@"%d %d %d %d", res1, res2, res3, res4);
+  }
+  return 0;
+}
+```
 
+**代码三**
 
-
-
-
-
-
-
+```objc
+@interface Person : NSObject
+@property (nonatomic, copy) NSString *name;
+- (void)speak;
+@end
+@implementation Sark
+- (void)speak {                            
+   NSLog(@"my name's %@", self.name);
+}
+@end
+  
+@implementation ViewController
+- (void)viewDidLoad {  
+   [super viewDidLoad];
+  
+   id cls = [Sark class];
+   void *obj = &cls;
+   [(__bridge id)obj speak];
+}
+@end
+```
 
 
 
