@@ -117,6 +117,8 @@ union isa_t {
 
 至此，可以得出结论：**Objective-C中类也是一个对象**
 
+**类的本质是 objc_class 类型的结构体，objc_class 继承与 objc_object**
+
 那么 isa 到底是什么呢？
 
 ### isa结构分析
