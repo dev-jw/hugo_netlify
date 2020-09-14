@@ -6,6 +6,7 @@ tags: ["iOS"]
 url:  "isa"
 ---
 
+
 在『[iOS底层原理探索-alloc流程分析](https://dev.hjw.best/alloc)』中提了一下`obj->initInstanceIsa(cls, hasCxxDtor)`，本文将对 isa 的进行细说
 
 同样的，先提出几个问题：
