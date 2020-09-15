@@ -64,7 +64,7 @@ sizeof(Struct2); // 返回 8
 
 **NSObject的定义**
 
-```objc
+```Objective-C
 typedef struct objc_class *Class;
 typedef struct objc_object *id;
 
@@ -128,7 +128,7 @@ union isa_t {
 
 那就要从`obj->initInstanceIsa(cls, hasCxxDtor)`之后的流程，继续探索
 
-```objc
+```Objective-C
 inline void 
 objc_object::initInstanceIsa(Class cls, bool hasCxxDtor)
 {
