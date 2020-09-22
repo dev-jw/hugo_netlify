@@ -6,7 +6,7 @@ tags: ["iOS"]
 url:  "cache_t"
 ---
 
-之前介绍了类的结构，但还剩下 `cache_t cache` 没有进行分析，本来将对 `cache_t` 进行研究
+之前介绍了类的结构，但还剩下 `cache_t cache` 没有进行分析，本文将对 `cache_t` 进行研究
 
 同样地，还是先提出几个问题：
 
@@ -68,7 +68,7 @@ struct cache_t {
 }
 ```
 
-3 个宏定义分别指：
+3 个宏定义分别代表：
 
 - `CACHE_MASK_STORAGE_OUTLINED` 表示运行的环境 `模拟器` 或者 `macOS`
 - `CACHE_MASK_STORAGE_HIGH_16` 表示运行环境是 `64`位的`真机`

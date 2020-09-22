@@ -308,12 +308,13 @@ LLookupRecover$1:
   - 如果`相等`，则直接跳转至`CacheHit`，即`缓存命中`，返回`imp`
   - 如果不相等，有以下两种情况
     - 如果一直都找不到，直接跳转至`CheckMiss`，因为`$0`是`normal`，会跳转至`__objc_msgSend_uncached`，即进入`慢速查找流程`
-    - 如果`根据index获取的bucket` 等于 `buckets的第一个元素`，则`人为`的将`当前bucket设置为buckets的最后一个元素`（通过`buckets首地址+mask右移44位`（等同于左移4位）直接`定位到bucker的最后一个元素`），然后继续向前查找，进行递归循环
+    - 如果`根据index获取的bucket` 等于 `buckets` 的第一个元素，则`人为`的将`当前bucket设置为buckets的最后一个元素`（通过`buckets首地址+mask右移44位`（等同于左移4位）直接`定位到bucker的最后一个元素`），接着执行下面的汇编，来到第二次循环
 
 - 第二次循环
 
   - 重复第一次循环的操作，与之唯一不同的是：
-    - 如果当前的 `bucket` 等于 `buckes` 的第一个元素，则直接跳转至 `JumpMiss`，此时的`$0`是`normal`，也是直接跳转至`__objc_msgSend_uncached`，即进入`慢速查找流程`
+
+    在 `sel != _cmd` 时，如果当前的 `bucket` 等于 `buckes` 的第一个元素，则直接跳转至 `JumpMiss`，此时的`$0`是`normal`，也是直接跳转至`__objc_msgSend_uncached`，即进入`慢速查找流程`
 
 > 两次循环的目的：防止不断循环的过程中多线程并发，正好缓存更新了
 
@@ -359,7 +360,285 @@ recache:
 
 同时，之前分析 cache_t 中的 `cache_t::insert`方法和`objc_msgSend`汇编流程，也是非常的相似的
 
+**快速查找流程——示意图**
+
+
+
+
+
 #### 慢速查找流程
+
+上面快速流程中，如果没有击中缓存(`CacheHit`)，会来到`CheckMiss`或`JumpMiss`
+
+`CheckMiss`源码
+
+```asm
+.macro CheckMiss
+	// miss if bucket->sel == 0
+.if $0 == GETIMP
+	cbz	p9, LGetImpMiss
+.elseif $0 == NORMAL
+	cbz	p9, __objc_msgSend_uncached
+.elseif $0 == LOOKUP
+	cbz	p9, __objc_msgLookup_uncached
+.else
+.abort oops
+.endif
+.endmacro
+```
+
+`JumpMiss`源码
+
+```asm
+.macro JumpMiss
+.if $0 == GETIMP
+	b	LGetImpMiss
+.elseif $0 == NORMAL
+	b	__objc_msgSend_uncached
+.elseif $0 == LOOKUP
+	b	__objc_msgLookup_uncached
+.else
+.abort oops
+.endif
+.endmacro
+```
+
+> 当`NORMAL`时，`CheckMiss`和`JumpMiss`都走`__objc_msgSend_uncached`
+
+从`__objc_msgSend_uncached`汇编源码中，会发现接下来执行`MethodTableLookup`和`TailCallFunctionPointer x17`指令
+
+```asm
+STATIC_ENTRY __objc_msgSend_uncached
+UNWIND __objc_msgSend_uncached, FrameWithNoSaves
+
+// THIS IS NOT A CALLABLE C FUNCTION
+// Out-of-band p16 is the class to search
+
+MethodTableLookup
+TailCallFunctionPointer x17
+
+END_ENTRY __objc_msgSend_uncached
+
+
+STATIC_ENTRY __objc_msgLookup_uncached
+UNWIND __objc_msgLookup_uncached, FrameWithNoSaves
+```
+
+`MethodTableLookup`也是一个接口层宏，主要用于保存环境与准备参数，来调用`_lookUpImpOrForward`函数(在objc-runtime-new.mm中)
+
+```asm
+.macro MethodTableLookup
+	
+	// push frame
+	SignLR
+	stp	fp, lr, [sp, #-16]!
+	mov	fp, sp
+
+	// save parameter registers: x0..x8, q0..q7
+	...
+
+	// lookUpImpOrForward(obj, sel, cls, LOOKUP_INITIALIZE | LOOKUP_RESOLVER)
+	// receiver and selector already in x0 and x1
+	mov	x2, x16
+	mov	x3, #3
+	bl	_lookUpImpOrForward
+
+	// IMP in x0
+	mov	x17, x0
+	
+	// restore registers and return
+	...
+
+	mov	sp, fp
+	ldp	fp, lr, [sp], #16
+	AuthenticateLR
+
+.endmacro
+```
+
+这里会将 `receiver，selector，class` 三个参数取 `x0，x1, x2` 的值，`behavior`设置为 3，即`LOOKUP_INITIALIZE | LOOKUP_RESOLVER`
+
+调用`lookUpImpOrForward(obj, sel, cls, LOOKUP_INITIALIZE | LOOKUP_RESOLVER)`，将返回的 `IMP` 存到 `x17`
+
+**`lookUpImpOrForward`函数实现**
+
+```c++
+/***********************************************************************
+* lookUpImpOrForward.
+* The standard IMP lookup. 
+* Without LOOKUP_INITIALIZE: tries to avoid +initialize (but sometimes fails)
+* Without LOOKUP_CACHE: skips optimistic unlocked lookup (but uses cache elsewhere)
+* Most callers should use LOOKUP_INITIALIZE and LOOKUP_CACHE
+* inst is an instance of cls or a subclass thereof, or nil if none is known. 
+*   If cls is an un-initialized metaclass then a non-nil inst is faster.
+* May return _objc_msgForward_impcache. IMPs destined for external use 
+*   must be converted to _objc_msgForward or _objc_msgForward_stret.
+*   If you don't want forwarding at all, use LOOKUP_NIL.
+**********************************************************************/
+IMP lookUpImpOrForward(id inst, SEL sel, Class cls, int behavior)
+{
+    const IMP forward_imp = (IMP)_objc_msgForward_impcache;
+    IMP imp = nil;
+    Class curClass;
+
+    runtimeLock.assertUnlocked();
+
+    // Optimistic cache lookup
+    if (fastpath(behavior & LOOKUP_CACHE)) {
+        imp = cache_getImp(cls, sel);
+        if (imp) goto done_nolock;
+    }
+
+    // runtimeLock is held during isRealized and isInitialized checking
+    // to prevent races against concurrent realization.
+
+    // runtimeLock is held during method search to make
+    // method-lookup + cache-fill atomic with respect to method addition.
+    // Otherwise, a category could be added but ignored indefinitely because
+    // the cache was re-filled with the old value after the cache flush on
+    // behalf of the category.
+
+    runtimeLock.lock();
+
+    // We don't want people to be able to craft a binary blob that looks like
+    // a class but really isn't one and do a CFI attack.
+    //
+    // To make these harder we want to make sure this is a class that was
+    // either built into the binary or legitimately registered through
+    // objc_duplicateClass, objc_initializeClassPair or objc_allocateClassPair.
+    //
+    // TODO: this check is quite costly during process startup.
+    checkIsKnownClass(cls);
+
+    if (slowpath(!cls->isRealized())) {
+        cls = realizeClassMaybeSwiftAndLeaveLocked(cls, runtimeLock);
+        // runtimeLock may have been dropped but is now locked again
+    }
+
+    if (slowpath((behavior & LOOKUP_INITIALIZE) && !cls->isInitialized())) {
+        cls = initializeAndLeaveLocked(cls, inst, runtimeLock);
+        // runtimeLock may have been dropped but is now locked again
+
+        // If sel == initialize, class_initialize will send +initialize and 
+        // then the messenger will send +initialize again after this 
+        // procedure finishes. Of course, if this is not being called 
+        // from the messenger then it won't happen. 2778172
+    }
+
+    runtimeLock.assertLocked();
+    curClass = cls;
+
+    // The code used to lookpu the class's cache again right after
+    // we take the lock but for the vast majority of the cases
+    // evidence shows this is a miss most of the time, hence a time loss.
+    //
+    // The only codepath calling into this without having performed some
+    // kind of cache lookup is class_getInstanceMethod().
+
+    for (unsigned attempts = unreasonableClassCount();;) {
+        // curClass method list.
+        Method meth = getMethodNoSuper_nolock(curClass, sel);
+        if (meth) {
+            imp = meth->imp;
+            goto done;
+        }
+
+        if (slowpath((curClass = curClass->superclass) == nil)) {
+            // No implementation found, and method resolver didn't help.
+            // Use forwarding.
+            imp = forward_imp;
+            break;
+        }
+
+        // Halt if there is a cycle in the superclass chain.
+        if (slowpath(--attempts == 0)) {
+            _objc_fatal("Memory corruption in class list.");
+        }
+
+        // Superclass cache.
+        imp = cache_getImp(curClass, sel);
+        if (slowpath(imp == forward_imp)) {
+            // Found a forward:: entry in a superclass.
+            // Stop searching, but don't cache yet; call method
+            // resolver for this class first.
+            break;
+        }
+        if (fastpath(imp)) {
+            // Found the method in a superclass. Cache it in this class.
+            goto done;
+        }
+    }
+
+    // No implementation found. Try method resolver once.
+
+    if (slowpath(behavior & LOOKUP_RESOLVER)) {
+        behavior ^= LOOKUP_RESOLVER;
+        return resolveMethod_locked(inst, sel, cls, behavior);
+    }
+
+ done:
+    log_and_fill_cache(cls, imp, sel, inst, curClass);
+    runtimeLock.unlock();
+ done_nolock:
+    if (slowpath((behavior & LOOKUP_NIL) && imp == forward_imp)) {
+        return nil;
+    }
+    return imp;
+}
+```
+
+`lookUpImpOrForward`方法正是消息慢速查找的核心所在
+
+**逐行讲解**
+
+`runtimeLock.assertUnlocked()`是加一个读写锁，保证线程安全
+
+```c++
+if (fastpath(behavior & LOOKUP_CACHE)) {
+    imp = cache_getImp(cls, sel);
+    if (imp) goto done_nolock;
+}
+```
+
+会根据传入的 `behavior & LOOKUP_CACHE` 值，如果值不为 0，那么会调用 `cache_getImp` 方法去从缓存里面查找 imp。
+
+​	- 如果存在，则会跳转到 `done_nolock`，返回 imp
+
+```asm
+	STATIC_ENTRY _cache_getImp
+
+	GetClassFromIsa_p16 p0
+	CacheLookup GETIMP, _cache_getImp
+
+LGetImpMiss:
+	mov	p0, #0
+	ret
+
+	END_ENTRY _cache_getImp
+```
+
+`checkIsKnownClass(cls)`是判断当前传入的类 cls 是否是已知的类（类已经被加载到内存中，这个会在后面类的加载中再作介绍）
+
+```c++
+if (slowpath(!cls->isRealized())) {
+    cls = realizeClassMaybeSwiftAndLeaveLocked(cls, runtimeLock);
+    // runtimeLock may have been dropped but is now locked again
+}
+```
+
+`cls->isRealized()`判断类是否已经初始化，如果没有则调用`realizeClassMaybeSwiftAndLeaveLocked`方法去初始化类、父类、元类等，并且申请，这是为**查找方法imp**做准备条件
+
+```c++
+if (slowpath((behavior & LOOKUP_INITIALIZE) && !cls->isInitialized())) {
+    cls = initializeAndLeaveLocked(cls, inst, runtimeLock);
+    // runtimeLock may have been dropped but is now locked again
+
+    // If sel == initialize, class_initialize will send +initialize and 
+    // then the messenger will send +initialize again after this 
+    // procedure finishes. Of course, if this is not being called 
+    // from the messenger then it won't happen. 2778172
+}
+```
 
 
 
