@@ -362,9 +362,7 @@ recache:
 
 **快速查找流程——示意图**
 
-
-
-
+![快速流程](https://w-md.imzsy.design/快速流程-0843823.png)
 
 #### 慢速查找流程
 
@@ -605,43 +603,318 @@ if (fastpath(behavior & LOOKUP_CACHE)) {
 ​	- 如果存在，则会跳转到 `done_nolock`，返回 imp
 
 ```asm
-	STATIC_ENTRY _cache_getImp
+STATIC_ENTRY _cache_getImp
 
-	GetClassFromIsa_p16 p0
-	CacheLookup GETIMP, _cache_getImp
+GetClassFromIsa_p16 p0
+CacheLookup GETIMP, _cache_getImp
 
 LGetImpMiss:
-	mov	p0, #0
-	ret
+mov	p0, #0
+ret
 
-	END_ENTRY _cache_getImp
+END_ENTRY _cache_getImp
 ```
 
-`checkIsKnownClass(cls)`是判断当前传入的类 cls 是否是已知的类（类已经被加载到内存中，这个会在后面类的加载中再作介绍）
+`checkIsKnownClass(cls)`是判断当前传入的类 cls 是否是已知的类（类已经被加载到内存中，后面再介绍）
 
 ```c++
 if (slowpath(!cls->isRealized())) {
     cls = realizeClassMaybeSwiftAndLeaveLocked(cls, runtimeLock);
-    // runtimeLock may have been dropped but is now locked again
 }
 ```
 
-`cls->isRealized()`判断类是否已经初始化，如果没有则调用`realizeClassMaybeSwiftAndLeaveLocked`方法去初始化类、父类、元类等，并且申请，这是为**查找方法imp**做准备条件
+`cls->isRealized()`判断类是否已经申请 class_rw_t 的可读写空间，如果没有则调用`realizeClassMaybeSwiftAndLeaveLocked`方法申请class_rw_t 的可读写空间，这是为**查找方法imp**做准备条件
 
 ```c++
 if (slowpath((behavior & LOOKUP_INITIALIZE) && !cls->isInitialized())) {
     cls = initializeAndLeaveLocked(cls, inst, runtimeLock);
-    // runtimeLock may have been dropped but is now locked again
-
-    // If sel == initialize, class_initialize will send +initialize and 
-    // then the messenger will send +initialize again after this 
-    // procedure finishes. Of course, if this is not being called 
-    // from the messenger then it won't happen. 2778172
 }
 ```
+
+判断类`cls->isInitialized()`是否初始化，如果没有调用`initializeAndLeaveLocked`方法进行初始化
+
+`runtimeLock.assertLocked();`这里加读锁。因为在运行时中会动态的添加方法，为了保证线程安全，所以要加锁。
+
+```c++
+// unreasonableClassCount 获取类的迭代上限
+for (unsigned attempts = unreasonableClassCount();;) {    
+    // 从当前类的方法列表中查找
+    Method meth = getMethodNoSuper_nolock(curClass, sel);
+    if (meth) {
+        imp = meth->imp;
+        goto done;
+    }
+
+    // 当前类 = 当前的父类，并判断父类是否为 nil
+    if (slowpath((curClass = curClass->superclass) == nil)) {
+        //--未找到方法实现，方法解析器也不行，使用转发
+        imp = forward_imp;
+        break;
+    }
+    
+    // 如果父类链中存在循环，则停止
+    if (slowpath(--attempts == 0)) {
+        _objc_fatal("Memory corruption in class list.");
+    }
+
+    // 从父类的缓存查找方法，即进入父类的快速查找流程
+    imp = cache_getImp(curClass, sel);
+    if (slowpath(imp == forward_imp)) {
+        // 如果在父类中找到了forward，则停止查找，且不缓存，首先调用此类的方法解析器
+        break;
+    }
+    if (fastpath(imp)) {
+        //如果在父类中，找到了此方法，将其存储到cache中
+        goto done;
+    }
+}
+
+done:
+  // 将方法进行缓存
+  log_and_fill_cache(cls, imp, sel, inst, curClass);
+  // 解锁
+  runtimeLock.unlock();
+```
+
+这是**消息慢速查找的关键**：
+
+1. `getMethodNoSuper_nolock`：从当前类的方法列表中查找，找到则返回 `IMP`，跳转到 `done`
+2. 将当前类设置为当前类的父类，并判断类是否为 nil
+   - 类为 nil，将 `imp` 等于 `forward_imp`
+3. 判断父类中是否存在循环，如果存在，抛出异常
+4. `cache_getImp`：从父类的缓存中查找方法
+
+```c++
+static method_t *
+getMethodNoSuper_nolock(Class cls, SEL sel)
+{
+    runtimeLock.assertLocked();
+
+    ASSERT(cls->isRealized());
+
+    auto const methods = cls->data()->methods();
+    for (auto mlists = methods.beginLists(),
+              end = methods.endLists();
+         mlists != end;
+         ++mlists)
+    {
+        method_t *m = search_method_list_inline(*mlists, sel);
+        if (m) return m;
+    }
+
+    return nil;
+}
+```
+
+这里解析一下`getMethodNoSuper_nolock`函数
+
+在`getMethodNoSuper_nolock`会遍历一次 methods 链表，遍历过程中会调用`search_method_list_inline`函数。
+
+```c++
+
+ALWAYS_INLINE static method_t *
+search_method_list_inline(const method_list_t *mlist, SEL sel)
+{
+    int methodListIsFixedUp = mlist->isFixedUp();
+    int methodListHasExpectedSize = mlist->entsize() == sizeof(method_t);
+    
+    if (fastpath(methodListIsFixedUp && methodListHasExpectedSize)) {
+        return findMethodInSortedMethodList(sel, mlist);
+    } else {
+        // Linear search of unsorted method list
+        for (auto& meth : *mlist) {
+            if (meth.name == sel) return &meth;
+        }
+    }
+
+#if DEBUG
+    // sanity-check negative results
+    if (mlist->isFixedUp()) {
+        for (auto& meth : *mlist) {
+            if (meth.name == sel) {
+                _objc_fatal("linear search worked when binary search did not");
+            }
+        }
+    }
+#endif
+
+    return nil;
+}
+```
+
+在`search_method_list_inline`函数中，会判断当前 methodList 是否有序，
+
+- 如果有序，会调用`findMethodInSortedMethodList`方法
+- 如果非有序，调用线性的傻瓜式遍历搜索
+
+```c++
+/***********************************************************************
+ * search_method_list_inline
+ **********************************************************************/
+ALWAYS_INLINE static method_t *
+findMethodInSortedMethodList(SEL key, const method_list_t *list)
+{
+    ASSERT(list);
+
+    const method_t * const first = &list->first;
+    const method_t *base = first;
+    const method_t *probe;
+    uintptr_t keyValue = (uintptr_t)key;
+    uint32_t count;
+    
+    for (count = list->count; count != 0; count >>= 1) {
+        probe = base + (count >> 1);
+        
+        uintptr_t probeValue = (uintptr_t)probe->name;
+        
+        if (keyValue == probeValue) {
+            // `probe` is a match.
+            // Rewind looking for the *first* occurrence of this value.
+            // This is required for correct category overrides.
+            while (probe > first && keyValue == (uintptr_t)probe[-1].name) {
+                probe--;
+            }
+            return (method_t *)probe;
+        }
+        
+        if (keyValue > probeValue) {
+            base = probe + 1;
+            count--;
+        }
+    }
+    
+    return nil;
+}
+```
+
+`findMethodInSortedMethodList`函数查找实现是一个二分查找。
+
+- `count >>= 1`，如果 count 是偶数，则值为 count / 2; 如果是奇数，则值为 (count - 1) / 2
+
+- `count >> 1` 相当于 `count / 2`
+- 当`keyValue == probeValue`，会先进入 while 循环，进行分类重名方法的过滤，再返回
+
+如果父类找到 NSObject 都没有查找到`IMP`，那么就会调用`resolveMethod_locked`，进行动态方法解析。
+
+#### 动态方法解析
+
+```c++
+if (slowpath(behavior & LOOKUP_RESOLVER)) {
+    behavior ^= LOOKUP_RESOLVER;
+    return resolveMethod_locked(inst, sel, cls, behavior);
+}
+
+static NEVER_INLINE IMP
+resolveMethod_locked(id inst, SEL sel, Class cls, int behavior)
+{
+    runtimeLock.assertLocked();
+    ASSERT(cls->isRealized());
+
+    runtimeLock.unlock();
+
+    if (! cls->isMetaClass()) {
+        // try [cls resolveInstanceMethod:sel]
+        resolveInstanceMethod(inst, sel, cls);
+    } 
+    else {
+        // try [nonMetaClass resolveClassMethod:sel]
+        // and [cls resolveInstanceMethod:sel]
+        resolveClassMethod(inst, sel, cls);
+        if (!lookUpImpOrNil(inst, sel, cls)) {
+            resolveInstanceMethod(inst, sel, cls);
+        }
+    }
+
+    // chances are that calling the resolver have populated the cache
+    // so attempt using it
+    return lookUpImpOrForward(inst, sel, cls, behavior | LOOKUP_CACHE);
+}
+```
+
+`resolveMethod_locked`函数首先会判断是否是`meta class`类
+
+- 不是元类，就执行`resolveInstanceMethod`方法
+- 是元类，执行`resolveClassMethod`方法
+
+`lookUpImpOrNil`内部还是会去调用`lookUpImpOrForward`去查找有没有传入的`sel`的实现，最终会走到`done_nolock`，且`imp == forward_imp`，即`imp == _objc_msgForward_impcache`，返回 nil
+
+> 这里需要打开读锁，因为开发者可能会在这里动态增加方法实现，所以不需要缓存结果。
+>
+> 这里锁被打开，可能会出现线程问题，所以在尾部调用`lookUpImpOrForward`，重新执行一遍之前查找的过程。
+
+再回到`resolveMethod_locked`的实现中，如果`lookUpImpOrNil`返回`nil`，就代表在父类中的缓存中没有找到`resolveClassMethod`方法，于是需要再调用一次`resolveInstanceMethod`方法。保证给`sel`添加上了对应的`IMP`。
+
+回到`lookUpImpOrForward`方法中，如果也没有找到`IMP`的实现，那么`method resolver`也没用了，只能进入消息转发阶段。
+
+进入这个阶段之前，imp变成`_objc_msgForward_impcache`。最后再加入缓存中。
+
+#### 消息转发
+
+**`_objc_msgForward_impcache`定义**
+
+`_objc_msgForward_impcache`是一个标记，这个标记用来表示在父类的缓存中停止继续查找。
+
+汇编实现，会跳转到`__objc_msgForward`
+
+```asm
+STATIC_ENTRY __objc_msgForward_impcache
+
+b	__objc_msgForward
+
+END_ENTRY __objc_msgForward_impcache
+
+ENTRY __objc_msgForward
+
+adrp	x17, __objc_forward_handler@PAGE
+ldr	p17, [x17, __objc_forward_handler@PAGEOFF]
+TailCallFunctionPointer x17
+
+END_ENTRY __objc_msgForward
+
+```
+
+`__objc_msgForward`是消息转发阶段的入口，本质是调用`__objc_forward_handler`函数
+
+```c++
+// Default forward handler halts the process.
+__attribute__((noreturn, cold)) void
+objc_defaultForwardHandler(id self, SEL sel)
+{
+    _objc_fatal("%c[%s %s]: unrecognized selector sent to instance %p "
+                "(no message forward handler is installed)", 
+                class_isMetaClass(object_getClass(self)) ? '+' : '-', 
+                object_getClassName(self), sel_getName(sel), self);
+}
+void *_objc_forward_handler = (void*)objc_defaultForwardHandler;
+```
+
+> 关于动态方法解析和消息转发，会在后续再作详细分析
+
+**慢速查找流程图**
 
 
 
 ### 总结
 
+Objective-C 的消息机制分为三个阶段：
+
+- 消息查找阶段：
+  - 快速查找：从类、父类等的方法缓存中查找方法
+  - 慢速查找：从类、父类等的方法列表中查找方法
+- 动态解析阶段：如果消息查找阶段没有找到方法，会进入方法动态解析阶段，动态的添加方法实现
+  - 实例方法：通过`resolveInstanceMethod`进行方法动态解析
+  - 类方法：通过`resolveClassMethod`进行方法动态解析
+- 消息转发阶段：如果没有实现动态解析方法，则会进入消息转发阶段，将方法转发给可以处理消息的接受者来处理
+
+**Runtime 中的优化**
+
+- 方法列表的缓存：
+
+  在消息发送过程中，查找阶段，会优先查找缓存。这个缓存会存储最近使用过的方法。原理是调用的方法有可能经常被调用。如果没有这个缓冲，直接去类的方法列表去查找，查询效率太低。
+
+  所以查找IMP会优先搜索方法缓存，如果没有找到，接着会在类的方法表中寻找IMP。
+
+  如果找到了，就会把这个IMP存储到缓存中备用。
+
+  基于这个设计，使Runtime系统能能够执行快速高效的方法查询操作。
 
