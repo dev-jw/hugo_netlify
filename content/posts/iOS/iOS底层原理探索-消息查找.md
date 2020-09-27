@@ -18,6 +18,14 @@ url:  "message"
 
 ### Runtime
 
+C中的函数调用方式，是使用的静态绑定(static binding)，即**在编译期就能决定运行时所应调用的函数**。
+
+而在Objective-C中，如果向某对象传递消息，就会使用动态绑定机制来决定需要调用的方法。
+
+而对于Objective-C的底层实现，都是C的函数。
+
+对象在收到消息之后，调用了哪些方法，完全取决于Runtime来决定，甚至可以在Runtime期间改变。
+
 **什么是Runtime**
 
 `Runtime`是一套 API，由 c、c++、汇编一起写成的，为 `Objective-c` 提供了运行时的能力
@@ -29,39 +37,43 @@ url:  "message"
 
 - Objective-C Code，如`[person run]`
 - NSObject API，如`isKindofClass`
-
 - Runtime APi，如`class_getInstanceSize`
 
 ### 方法的本质
 
-通过 clang 编译后，可以看到底层代码：
+一般地，对象发送消息，使用下面这种写法
 
 ```objective-c
 //main.m中方法的调用
 Person *person = [Person alloc];
 [person run];
+```
 
+通过 clang 编译后，`[person run]`会被编译为：`objc_msgSend(person, sel_registerName("run"))`，转换成标准的消息传递的 C函数，即`objc_msgSend(消息接收者, 方法编号)`
+
+```c++
 //👇clang编译后的底层实现
 Person *person = ((Person *(*)(id, SEL))(void *)objc_msgSend)((id)objc_getClass("Person"), sel_registerName("alloc"));
 ((void (*)(id, SEL))(void *)objc_msgSend)((id)person, sel_registerName("run"));
-
 ```
 
-[person run]会被编译为：`objc_msgSend(person, sel_registerName("run"))`，即`objc_msgSend(消息接收者, 方法编号)`
-
-没错，方法的本质就是**通过`objc_msgSend函数`发送消息**
+没错，方法的本质：在`Objective-C`发送消息，通过编译在底层，都是**通过`objc_msgSend函数`进行消息传递**
 
 ```objective-c
 id objc_msgSend(id self, SEL op, ...)
 ```
 
-`objc_msgSend`这是一个可变参数函数。第二个参数类型是SEL，在 OC 中是 `selector` 方法选择器
+`objc_msgSend`这是一个可变参数函数。其中第二个参数类型是SEL，在 OC 中是 `@selector()` 方法选择器
+
+**@selector()**
+
+对于 `SEL` 类型，经常使用的是`@selector()`，源码定义为：
 
 ```objective-c
 typedef struct objc_selector *SEL;
 ```
 
-`objc_selector`是一个映射到方法的 C 字符串。需要注意的是`@selector()`选择只与函数名有关。
+`objc_selector`是一个映射到方法的 C 字符串。需要注意的是`@selector()`选择子只与函数名有关。
 
 - 不同类中相同名字的方法所对应的方法选择器是相同的
 - 方法名字相同而变量类型不同，也会导致它们具有相同的方法选择器
@@ -72,9 +84,15 @@ typedef struct objc_selector *SEL;
 >
 > 因为发送消息就是找函数实现的过程，而C函数可以通过`函数名`——`指针`就可以找到
 
+那么为什么要有这个选择子呢？在*[从源代码看 ObjC 中消息的发送](http://draveness.me/message/)*一文中，作者*Draveness*对其原因进行了推断：
+
+> 1. Objective-C 为我们维护了一个巨大的选择子表
+> 2. 在使用 `@selector()` 时会从这个选择子表中根据选择子的名字查找对应的 `SEL`。如果没有找到，则会生成一个 SEL 并添加到表中
+> 3. 在编译期间会扫描全部的头文件和实现文件将其中的方法以及使用 `@selector()` 生成的选择子加入到选择子表中
+
 ### 方法查找流程 —— objc_msgSend源码解析
 
-> 消息查找流程其实是通过上层的`方法编号sel`发送消息`objc_msgSend`找到`具体实现imp`的过程
+> 消息查找：objc_msgSend 依据 `接收者receiver` 与 `方法编号sel` 来调用`具体实现方法imp` 的过程 
 
 `objc_msgSend`是用汇编写的，是因为：
 
@@ -86,31 +104,10 @@ typedef struct objc_selector *SEL;
 在`obj4-781`里面的`objc-msg-arm64.s`文件中，`objc_msgSend`汇编源码：
 
 ```asm
-/********************************************************************
- *
- * id objc_msgSend(id self, SEL _cmd, ...);
- * IMP objc_msgLookup(id self, SEL _cmd, ...);
- * 
- * objc_msgLookup ABI:
- * IMP returned in x17
- * x16 reserved for our use but not used
- *
- ********************************************************************/
-
-#if SUPPORT_TAGGED_POINTERS
-	.data
-	.align 3
-	.globl _objc_debug_taggedpointer_classes
-_objc_debug_taggedpointer_classes:
-	.fill 16, 8, 0
-	.globl _objc_debug_taggedpointer_ext_classes
-_objc_debug_taggedpointer_ext_classes:
-	.fill 256, 8, 0
-#endif
-
-	ENTRY _objc_msgSend
+  ENTRY _objc_msgSend
 	UNWIND _objc_msgSend, NoFrame
 
+	/* p0表示0寄存器的指针，x0 表示它的值。*/ 
 	cmp	p0, #0			// nil check and tagged pointer check
 #if SUPPORT_TAGGED_POINTERS
 	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)
@@ -124,8 +121,6 @@ LGetIsaDone:
 	CacheLookup NORMAL, _objc_msgSend
 ```
 
-> p0表示0寄存器的指针，x0 表示它的值。
-
 **分析汇编代码**
 
 进入到`_objc_msgSend`方法
@@ -136,28 +131,9 @@ LGetIsaDone:
 - 通过`GetClassFromIsa_p16`，获取`receiver`中的类信息
 - 进入`CacheLookup`，根据当前类的缓存查找`imp`——**快速查找流程**
 
-`GetClassFromIsa_p16`汇编源码：
+`GetClassFromIsa_p16`宏的实现
 
 ```asm
-/********************************************************************
- * GetClassFromIsa_p16 src
- * src is a raw isa field. Sets p16 to the corresponding class pointer.
- * The raw isa might be an indexed isa to be decoded, or a
- * packed isa that needs to be masked.
- *
- * On exit:
- *   $0 is unchanged
- *   p16 is a class pointer
- *   x10 is clobbered
- ********************************************************************/
-
-#if SUPPORT_INDEXED_ISA
-	.align 3
-	.globl _objc_indexed_classes
-_objc_indexed_classes:
-	.fill ISA_INDEX_COUNT, PTRSIZE, 0
-#endif
-
 .macro GetClassFromIsa_p16 /* src */
 
 #if SUPPORT_INDEXED_ISA
@@ -186,7 +162,7 @@ _objc_indexed_classes:
 
 `and p16, $0, #ISA_MASK`等同于`isa & ISA_MASK`，也就是获取 isa 指针中 `shiftcls` 中的类信息
 
-`CacheLookup`源码：
+`CacheLookup`宏的实现：
 
 ```asm
 .macro CacheLookup
