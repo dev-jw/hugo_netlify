@@ -778,7 +778,7 @@ findMethodInSortedMethodList(SEL key, const method_list_t *list)
 
 **慢速查找流程图**
 
-![慢速流程](https://w-md.imzsy.design/慢速流程.png)
+![慢速消息发送](https://w-md.imzsy.design/慢速消息发送.png)
 
 ### 总结
 
