@@ -57,7 +57,11 @@ Person *person = ((Person *(*)(id, SEL))(void *)objc_msgSend)((id)objc_getClass(
 ((void (*)(id, SEL))(void *)objc_msgSend)((id)person, sel_registerName("run"));
 ```
 
-没错，方法的本质：在`Objective-C`发送消息，通过编译在底层，都是**通过`objc_msgSend函数`进行消息传递**
+是的，方法的本质：
+
+在`Objective-C`发送消息，通过编译在底层，都是**通过`objc_msgSend函数`进行消息传递**
+
+**objc_msgSend**
 
 ```objective-c
 id objc_msgSend(id self, SEL op, ...)
@@ -84,11 +88,11 @@ typedef struct objc_selector *SEL;
 >
 > 因为发送消息就是找函数实现的过程，而C函数可以通过`函数名`——`指针`就可以找到
 
-那么为什么要有这个选择子呢？在*[从源代码看 ObjC 中消息的发送](http://draveness.me/message/)*一文中，作者*Draveness*对其原因进行了推断：
+那么为什么要有这个选择子呢？在[从源代码看 ObjC 中消息的发送](http://draveness.me/message/)一文中，作者**Draveness**对其原因进行了推断：
 
-> 1. Objective-C 为我们维护了一个巨大的选择子表
-> 2. 在使用 `@selector()` 时会从这个选择子表中根据选择子的名字查找对应的 `SEL`。如果没有找到，则会生成一个 SEL 并添加到表中
-> 3. 在编译期间会扫描全部的头文件和实现文件将其中的方法以及使用 `@selector()` 生成的选择子加入到选择子表中
+ 1. Objective-C 为我们维护了一个巨大的选择子表
+ 2. 在使用 `@selector()` 时，会从这个选择子表中根据选择子的名字查找对应的 `SEL`。如果没有找到，则会生成一个 SEL 并添加到表中
+ 3. 在编译期时，会扫描全部的头文件和实现文件将其中的方法以及使用 `@selector()` 生成的选择子加入到选择子表中
 
 ### 方法查找流程 —— objc_msgSend源码解析
 
@@ -104,7 +108,7 @@ typedef struct objc_selector *SEL;
 在`obj4-781`里面的`objc-msg-arm64.s`文件中，`objc_msgSend`汇编源码：
 
 ```asm
-  ENTRY _objc_msgSend
+	ENTRY _objc_msgSend
 	UNWIND _objc_msgSend, NoFrame
 
 	/* p0表示0寄存器的指针，x0 表示它的值。*/ 
@@ -379,7 +383,7 @@ recache:
 
 > 当`NORMAL`时，`CheckMiss`和`JumpMiss`都走`__objc_msgSend_uncached`
 
-从`__objc_msgSend_uncached`汇编源码中，会发现接下来执行`MethodTableLookup`和`TailCallFunctionPointer x17`指令
+**__objc_msgSend_uncached**
 
 ```asm
 STATIC_ENTRY __objc_msgSend_uncached
@@ -398,7 +402,9 @@ STATIC_ENTRY __objc_msgLookup_uncached
 UNWIND __objc_msgLookup_uncached, FrameWithNoSaves
 ```
 
-`MethodTableLookup`也是一个接口层宏，主要用于保存环境与准备参数，然后去调用`_lookUpImpOrForward`函数(在objc-runtime-new.mm中)
+从`__objc_msgSend_uncached`汇编源码中，会发现接下来执行`MethodTableLookup`和`TailCallFunctionPointer x17`指令
+
+**MethodTableLookup**
 
 ```asm
 .macro MethodTableLookup
@@ -429,6 +435,8 @@ UNWIND __objc_msgLookup_uncached, FrameWithNoSaves
 
 .endmacro
 ```
+
+`MethodTableLookup`也是一个接口层宏，主要用于保存环境与准备参数，然后去调用`_lookUpImpOrForward`函数(在objc-runtime-new.mm中)
 
 这里会将 `receiver，selector，class` 三个参数取 `x0，x1, x2` 的值，`behavior`设置为 3，即`LOOKUP_INITIALIZE | LOOKUP_RESOLVER`
 
@@ -772,13 +780,13 @@ findMethodInSortedMethodList(SEL key, const method_list_t *list)
 
 如果在动态方法解析阶段仍然没有找到 `IMP`，只能进入**消息转发**阶段。
 
-进入消息转发阶段之前，imp变成`_objc_msgForward_impcache`。且最后再加入缓存中。
+进入消息转发阶段之前，imp变成`_objc_msgForward_impcache`，且最后再加入缓存中。
 
 > 关于动态方法解析和消息转发，会在后续再作详细分析
 
 **慢速查找流程图**
 
-![慢速消息发送](https://w-md.imzsy.design/慢速消息发送.png)
+![慢速消息查找](https://w-md.imzsy.design/慢速消息查找-1989467.png)
 
 ### 总结
 

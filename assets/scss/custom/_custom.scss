@@ -26,16 +26,24 @@
     padding: 10em 1em;
 }
 
-// .post-body a {
-//     color: #0681d0;
-//     text-decoration: underline;
-//     text-decoration-color: #0681d0;
-//     -moz-text-decoration-color: #0681d0;
+// a {
+//     color: var(--color-primary);
+//     text-decoration: none;
+//     transition: all $duration;
+//     &:hover {
+//         color: var(--color-primary);
+//     }
 // }
 
 [data-theme="dark"] {
     .theme-icon-dark, #lang-switcher, .footer-icon {
         opacity: 0.75;
+    }
+
+    .post-body a {
+        color: #E9DAAC ;
+        text-decoration: underline;
+        text-decoration-color: #E9DAAC;
     }
 }
 

@@ -8,8 +8,6 @@ url:  "Class-structure"
 
 在『[iOS底层原理探索-isa结构&指向分析](/isa)』中，我们已经知道：
 
-
-
 本文将对类的结构进一步的分析，同样的，先提出几个问题：
 
 - `objc_class` 与 `objc_object` 有什么关系？
