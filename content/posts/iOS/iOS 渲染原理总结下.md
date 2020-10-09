@@ -6,7 +6,7 @@ tags: ["iOS"]
 url:  "iOSRenderNext"
 ---
 
-还是上篇一样，带着问题去学习
+接上一篇，继续带着问题去学习
 
 1. CoreAnimation 的职责是什么？
 2. UIView 和 CALayer 是什么关系？有什么区别？
