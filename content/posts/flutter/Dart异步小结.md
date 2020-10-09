@@ -84,7 +84,7 @@ do {
 1. 事件队列：包含所有的外来事件：`I/O`、`mouse events`、`drawing events`、`timers`、`isolate`之间的信息传递
 2. 微任务队列：表示一个短时间内就会完成的异步任务。它的优先级最高，高于`event queue`，只要队列中还有任务，就可以一直霸占着事件循环。`microtask queue`添加的任务主要是由 `Dart`内部产生
 
-![enevtQueue](/Users/neotv/Documents/markdown-imgs/enevtQueue-1949680.png)
+![enevtQueue](https://w-md.imzsy.design/enevtQueue.png)
 
 在每一次事件循环中，`Dart`总是先去第一个`microtask queue`中查询是否有可执行的任务，如果没有，才会处理后续的`event queue`的流程。
 
