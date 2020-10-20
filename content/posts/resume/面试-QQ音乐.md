@@ -1,8 +1,9 @@
 ---
-title: "QQ音乐面试小结"
+title: "面试-QQ音乐"
 date: 2020-06-13T17:42:16+08:00
-draft: false
-tags: ["iOS"]
+draft: true
+tags: ["resume"]
+url:  ""
 ---
 
 ### QQ音乐面试小结
