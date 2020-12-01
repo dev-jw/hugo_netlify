@@ -1,27 +1,22 @@
-name: CI #自动化的名称
+# .github/workflows/build.yml
+
+name: build
+
 on:
-  push: # push的时候触发
-    branches: # 那些分支需要触发
-      - master
+  push:
+    branches:
+    - master
+
 jobs:
   build:
-    runs-on: ubuntu-latest # 镜像市场
+    runs-on: ubuntu-latest
+
     steps:
-      - name: checkout # 步骤的名称
-        uses: actions/checkout@v1 #软件市场的名称
-        with: # 参数
-          submodules: true
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2.2.2
-        with:
-          hugo-version: '0.79.0'
-          extended: true
-      - name: Build
-        run: hugo -D
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v2.5.1
-        env:
-          ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
-          EXTERNAL_REPOSITORY: redisread/redisread.github.io
-          PUBLISH_BRANCH: master
-          PUBLISH_DIR: ./public
+    - name: 'Building...'
+      uses: reuixiy/hugo-deploy@v1
+      env:
+        DEPLOY_REPO: dev-jw/dev-jw.github.io
+        DEPLOY_BRANCH: build
+        DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+        # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        TZ: Asia/Shanghai
