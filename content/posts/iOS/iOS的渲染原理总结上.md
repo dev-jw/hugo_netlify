@@ -1,5 +1,5 @@
 ---
-title: "iOS 渲染原理总结(上)"
+title: "iOS的渲染原理总结(上)"
 date: 2020-06-16T10:00:00+08:00
 draft: false
 tags: ["iOS"]

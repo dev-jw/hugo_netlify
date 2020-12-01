@@ -47,7 +47,7 @@ Xcode 通常帮我们做了以下几件事：
 
 如`.dylib`、`.framework`都是动态库
 
-> **系统的framework是动态的，开发者创建的framework是静态的**
+> **系统的framework是动态的，开发者创建的framework是静态的，也可以是动态的**
 
 ### dyld
 

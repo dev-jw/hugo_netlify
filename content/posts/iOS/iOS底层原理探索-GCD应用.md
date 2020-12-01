@@ -1,5 +1,5 @@
 ---
-title: "iOS底层原理探索-GCDy应用"
+title: "iOS底层原理探索-GCD应用"
 date: 2020-11-03T20:47:18+08:00
 draft: true
 tags: ["iOS"]
