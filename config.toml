@@ -1091,7 +1091,7 @@ uglyURLs = false
     # 相关文章
 
     # 是否开启
-    enableRelatedPosts = true
+    enableRelatedPosts = false
 
     # 是否显示（全局设置）
     displayRelatedPosts = true

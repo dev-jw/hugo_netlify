@@ -62,7 +62,7 @@ struct objc_object {
 
 ### 类的结构
 
-从 `objc_class` 中定义，结构体有 4 个成员变量：isa、superclass、cache、bits
+从 `objc_class` 中定义，结构体有 4 个成员变量：`isa、superclass、cache、bits`
 
 **Class ISA**
 
