@@ -454,76 +454,6 @@ attachCategories(Class cls, const locstamped_category_t *cats_list, uint32_t cat
   - 如果分类没有实现或全都`+load`方法，响应的是**编译器**最后一个分类，即`Compile Sources`中的最后一个分类
   - 如果分类中其中一个实现`+load`，那么响应的是编译器中最后的一个非懒加载分类
 
-### 类拓展
-
-类拓展 `extension` 又称为`匿名的分类`，同样可以为类增加属性和方法
-
-在开始的类中，加入类拓展
-
-```objective-c
-@interface Person ()
-
-@property (nonatomic, copy) NSString *ex_name;
-@property (nonatomic, assign) NSNumber *ex_age;
-
-- (void)ex_doFirst;
-- (void)ex_doSecond;
-@end
-```
-
-`clang` 编译
-
-```c++
-static struct /*_ivar_list_t*/ {
-	unsigned int entsize;  // sizeof(struct _prop_t)
-	unsigned int count;
-	struct _ivar_t ivar_list[4];
-} _OBJC_$_INSTANCE_VARIABLES_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
-	sizeof(_ivar_t),
-	4,
-	{{(unsigned long int *)&OBJC_IVAR_$_Person$_name, "_name", "@\"NSString\"", 3, 8},
-	 {(unsigned long int *)&OBJC_IVAR_$_Person$_age, "_age", "@\"NSNumber\"", 3, 8},
-	 {(unsigned long int *)&OBJC_IVAR_$_Person$_ex_name, "_ex_name", "@\"NSString\"", 3, 8},
-	 {(unsigned long int *)&OBJC_IVAR_$_Person$_ex_age, "_ex_age", "@\"NSNumber\"", 3, 8}}
-};
-
-static struct /*_method_list_t*/ {
-	unsigned int entsize;  // sizeof(struct _objc_method)
-	unsigned int method_count;
-	struct _objc_method method_list[19];
-} _OBJC_$_INSTANCE_METHODS_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
-	sizeof(_objc_method),
-	19,
-	{{(struct objc_selector *)"doFirst", "v16@0:8", (void *)_I_Person_doFirst},
-	{(struct objc_selector *)"doSecond", "v16@0:8", (void *)_I_Person_doSecond},
-	{(struct objc_selector *)"ex_doFirst", "v16@0:8", (void *)_I_Person_ex_doFirst},
-	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
-	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_},
-	{(struct objc_selector *)"age", "@16@0:8", (void *)_I_Person_age},
-	{(struct objc_selector *)"setAge:", "v24@0:8@16", (void *)_I_Person_setAge_},
-	{(struct objc_selector *)"ex_name", "@16@0:8", (void *)_I_Person_ex_name},
-	{(struct objc_selector *)"setEx_name:", "v24@0:8@16", (void *)_I_Person_setEx_name_},
-	{(struct objc_selector *)"ex_age", "@16@0:8", (void *)_I_Person_ex_age},
-	{(struct objc_selector *)"setEx_age:", "v24@0:8@16", (void *)_I_Person_setEx_age_},
-	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
-	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_},
-	{(struct objc_selector *)"age", "@16@0:8", (void *)_I_Person_age},
-	{(struct objc_selector *)"setAge:", "v24@0:8@16", (void *)_I_Person_setAge_},
-	{(struct objc_selector *)"ex_name", "@16@0:8", (void *)_I_Person_ex_name},
-	{(struct objc_selector *)"setEx_name:", "v24@0:8@16", (void *)_I_Person_setEx_name_},
-	{(struct objc_selector *)"ex_age", "@16@0:8", (void *)_I_Person_ex_age},
-	{(struct objc_selector *)"setEx_age:", "v24@0:8@16", (void *)_I_Person_setEx_age_}}
-};
-```
-
-可以看到，类拓展中的属性已经被加入到 `ivar_list_t` 中，方法`ex_doFirst`被加入到了 `method_list_t`，`ex_doSecond`没有被加入是因为没有在主类中实现
-
-因此
-
-- 类拓展在编译时会作为类的一部分进行编译
-
-- 类拓展只是声明，依赖于当前主类，方法需要在主类 `.m` 文件中实现
-
 ### load_images
 
 `load_image`源码
@@ -876,3 +806,96 @@ void callInitialize(Class cls)
 - 父类的`initialize`方法会比子类先执行
 - 当子类未实现`initialize`方法时，会调用父类`initialize`方法；子类实现`initialize`方法时，会覆盖父类`initialize`方法
 - 当有多个分类都实现了`initialize`方法，会覆盖类中的方法，只执行一个(会执行最后被加载到内存中的分类的方法)
+
+### 类拓展
+
+类拓展 `extension` 又称为`匿名的分类`，同样可以为类增加属性和方法
+
+在开始的类中，加入类拓展
+
+```objective-c
+@interface Person ()
+
+@property (nonatomic, copy) NSString *ex_name;
+@property (nonatomic, assign) NSNumber *ex_age;
+
+- (void)ex_doFirst;
+- (void)ex_doSecond;
+@end
+```
+
+`clang` 编译
+
+```c++
+static struct /*_ivar_list_t*/ {
+	unsigned int entsize;  // sizeof(struct _prop_t)
+	unsigned int count;
+	struct _ivar_t ivar_list[4];
+} _OBJC_$_INSTANCE_VARIABLES_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
+	sizeof(_ivar_t),
+	4,
+	{{(unsigned long int *)&OBJC_IVAR_$_Person$_name, "_name", "@\"NSString\"", 3, 8},
+	 {(unsigned long int *)&OBJC_IVAR_$_Person$_age, "_age", "@\"NSNumber\"", 3, 8},
+	 {(unsigned long int *)&OBJC_IVAR_$_Person$_ex_name, "_ex_name", "@\"NSString\"", 3, 8},
+	 {(unsigned long int *)&OBJC_IVAR_$_Person$_ex_age, "_ex_age", "@\"NSNumber\"", 3, 8}}
+};
+
+static struct /*_method_list_t*/ {
+	unsigned int entsize;  // sizeof(struct _objc_method)
+	unsigned int method_count;
+	struct _objc_method method_list[19];
+} _OBJC_$_INSTANCE_METHODS_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
+	sizeof(_objc_method),
+	19,
+	{{(struct objc_selector *)"doFirst", "v16@0:8", (void *)_I_Person_doFirst},
+	{(struct objc_selector *)"doSecond", "v16@0:8", (void *)_I_Person_doSecond},
+	{(struct objc_selector *)"ex_doFirst", "v16@0:8", (void *)_I_Person_ex_doFirst},
+	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
+	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_},
+	{(struct objc_selector *)"age", "@16@0:8", (void *)_I_Person_age},
+	{(struct objc_selector *)"setAge:", "v24@0:8@16", (void *)_I_Person_setAge_},
+	{(struct objc_selector *)"ex_name", "@16@0:8", (void *)_I_Person_ex_name},
+	{(struct objc_selector *)"setEx_name:", "v24@0:8@16", (void *)_I_Person_setEx_name_},
+	{(struct objc_selector *)"ex_age", "@16@0:8", (void *)_I_Person_ex_age},
+	{(struct objc_selector *)"setEx_age:", "v24@0:8@16", (void *)_I_Person_setEx_age_},
+	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
+	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_},
+	{(struct objc_selector *)"age", "@16@0:8", (void *)_I_Person_age},
+	{(struct objc_selector *)"setAge:", "v24@0:8@16", (void *)_I_Person_setAge_},
+	{(struct objc_selector *)"ex_name", "@16@0:8", (void *)_I_Person_ex_name},
+	{(struct objc_selector *)"setEx_name:", "v24@0:8@16", (void *)_I_Person_setEx_name_},
+	{(struct objc_selector *)"ex_age", "@16@0:8", (void *)_I_Person_ex_age},
+	{(struct objc_selector *)"setEx_age:", "v24@0:8@16", (void *)_I_Person_setEx_age_}}
+};
+```
+
+可以看到，类拓展中的属性已经被加入到 `ivar_list_t` 中，方法`ex_doFirst`被加入到了 `method_list_t`，`ex_doSecond`没有被加入是因为没有在主类中实现
+
+因此
+
+- 类拓展在编译时会作为类的一部分进行编译
+
+- 类拓展只是声明，依赖于当前主类，方法需要在主类 `.m` 文件中实现
+
+### 类拓展与分类的区别
+
+**分类**
+
+- 为某个类添加方法、协议、属性（一般使用关联对象），通常用来为系统的类拓展方法或者把复杂类根据功能拆分到不同的文件里
+
+**类拓展**
+
+- 为某个类添加原来没有的成员变量、属性、方法（方法只是声明，需要实现），通常用来扩展私有属性，或者把`.h`的**只读属性**重写**可读写**的
+
+**区别**
+
+- 分类是在运行时，才把分类的信息合并到类信息中，而类拓展是在编译时
+- 分类声明的属性，只会生成 `setter/getter` 方法的声明，不会自动生成**成员变量**和`setter/getter` 方法的实现，而类拓展可以
+- 分类不可以为类添加实例变量，而类拓展可以
+- 分类可以为类添加方法的实现，而类拓展只能声明方法，而不能实现
+
+**分类的局限点**
+
+- 无法为类添加实例变量，但可通过关联对象进行实现
+- 分类的方法若和类中原来的方法实现重名，会优先调用分类中的方法
+- 多个分类的方法重名，会调用最后编译的那个分类的方法实现
