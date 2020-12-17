@@ -37,3 +37,12 @@ tags: ["resume"]
 
 ![截屏2020-10-26 下午10.58.35](/Users/zsy/Desktop/Blog/%E9%85%8D%E5%9B%BE/%E6%88%AA%E5%B1%8F2020-10-26%20%E4%B8%8B%E5%8D%8810.58.35.png)
 
+
+
+请勿外泄 11.0.1 20B50三分区 
+
+16G cloud.189.cn/t/qa6nYzMnUzAb (2qzv) 
+
+32G cloud.189.cn/t/re2MFrB7Frme (23ay) 
+
+7天内有效
