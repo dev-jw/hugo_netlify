@@ -451,7 +451,7 @@ NSLog(@"%@", [person valueForKeyPath:@"friends.name"]);
 }
 ```
 
- 
+[完整 Demo](https://github.com/dev-jw/Custom_KVO) 
 
 ### KVC 使用场景
 
