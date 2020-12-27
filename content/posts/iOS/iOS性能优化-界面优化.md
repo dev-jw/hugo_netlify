@@ -22,6 +22,8 @@ url:  "interface-optimization"
 
 **RunLoop 检测事务执行间隔**
 
+常见的方案，有一个[坑点](https://mp.weixin.qq.com/s/vMRQ0VuHLxpaY9oCNd5G8w)
+
 - 微信团队的解决方案
 - 滴滴团队的解决方案
 
