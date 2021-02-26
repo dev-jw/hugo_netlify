@@ -1,10 +1,11 @@
 {
-  "applinks": {
-    "apps": [],
-    "details": [
-    {
-      "appID": "4J9T6HH7ZV.zsy.NFC",
-      "paths": ["*"]
-    }]
-  }
+    "applinks": {
+        "apps": [],
+        "details": [
+            {
+                "appID": "4J9T6HH7ZV.com.zsy.NFC",
+                "paths": [ "*" ]
+            }
+        ]
+    }
 }
