@@ -83,42 +83,42 @@
         {{- $raw := . -}}
         <article class="content post home dev-post">
             {{ if eq $raw "flutter" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card top_card">
                     <h4 class="post-title">Flutter</h4>
                 </div>
             </a>
 
             {{ else if eq $raw "ios" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card middle_card">
                     <h4 class="post-title">iOS</h4>
                 </div>
             </a>
 
             {{ else if eq $raw "opengl" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card bottom_card">
                     <h4 class="post-title">OpenGL</h4>
                 </div>
             </a>
 
             {{ else if eq $raw "opengles" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card top_card">
                     <h4 class="post-title">OpenGLES</h4>
                 </div>
             </a>
 
             {{ else if eq $raw "leetcode" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card middle_card">
                     <h4 class="post-title">LeetCode</h4>
                 </div>
             </a>
 
             {{ else if eq $raw "algorithm" }}
-            <a href="/posts/{{$raw}}" class="summary-title-link">
+            <a href="/posts/{{$raw}}/" class="summary-title-link">
                 <div class="card bottom_card">
                     <h4 class="post-title">数据结构与算法</h4>
                 </div>
@@ -127,7 +127,7 @@
             {{ else }}
             <div class="card">
                 <h4 class="post-title">
-                    <a href="/posts/{{$raw}}" class="summary-title-link">{{ $raw | safeHTML }}</a>
+                    <a href="/posts/{{$raw}}/" class="summary-title-link">{{ $raw | safeHTML }}</a>
                 </h4>
             </div>
             {{ end }}
